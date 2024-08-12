@@ -1,22 +1,22 @@
-import tensorflow as tf
-import tensorflow_hub as hub
-import tensorflow_text as text
+import torch
+from transformers import BertTokenizer, BertModel
 
-bert_model_name = 'small_bert/bert_en_uncased_L-4_H-512_A-8'
-tfhub_handle_encoder = 'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-512_A-8/1'
-tfhub_handle_preprocess = 'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3'
-
-# Load the BERT model and the preprocessing model
-bert_preprocess_model = hub.KerasLayer(tfhub_handle_preprocess)
-bert_model = hub.KerasLayer(tfhub_handle_encoder)
+# Load pre-trained BERT tokenizer and model
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertModel.from_pretrained('bert-base-uncased')
 
 
-def build_bert_model() -> tf.keras.Model:
-    """
-    Build a BERT model to extract features from text data.
-    """
-    text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
-    encoder_inputs = bert_preprocess_model(text_input)
-    outputs = bert_model(encoder_inputs)
-    net = outputs['pooled_output']
-    return tf.keras.Model(text_input, net)
+def get_embeddings(input_sentence: str) -> torch.Tensor:
+    inputs = tokenizer(input_sentence, return_tensors='pt', max_length=512, truncation=True, padding=True)
+
+    # Get the input IDs and attention mask
+    input_ids = inputs['input_ids']
+    attention_mask = inputs['attention_mask']
+
+    # Pass the inputs through the BERT model
+    with torch.no_grad():
+        outputs = model(input_ids, attention_mask=attention_mask)
+
+    sentence_embedding = torch.mean(outputs.last_hidden_state, dim=1)
+
+    return sentence_embedding
